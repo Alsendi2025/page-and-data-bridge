@@ -41,7 +41,7 @@
       "source": "ProtectedRoute (any signed-in user) + unauthenticated /api writes",
       "outcome": "admin role via user_roles + RLS",
       "status": "verified",
-      "next_action": "assign admin email (awaiting user answer)"
+      "next_action": "admin email set; owner signs in once to activate"
     },
     {
       "capability": "Google sign-in",
