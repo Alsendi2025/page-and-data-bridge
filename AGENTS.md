@@ -28,3 +28,11 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- Site data (products, articles, saved projects, quote requests) is read and written from the browser through `src/lib/api.ts`; row-level security is the only access boundary, so every new table needs explicit policies. Why: replaces the original open `/api/*` endpoints without a server layer.
+- Admin access comes only from `public.user_roles` (checked with `has_role`); `public.admin_emails` lists emails auto-granted admin by a trigger once that email is verified. Why: never trust client-supplied roles or unverified emails.
+- `public.legacy_user_map` holds original-platform user IDs mapped to Cloud users and is service-role only. Why: imported records keep their original ownership.
+- Page bodies live in `src/components/pages/*`; route files under `src/routes` only add `head()` and mount them. Why: keeps the ported pages close to the original source.
+- The site is Arabic RTL (`<html lang="ar" dir="rtl">`); keep layouts RTL-aware.

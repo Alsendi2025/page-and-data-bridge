@@ -1,20 +1,110 @@
 {
   "source": "code-archive (agon-agent_1-2ff985c2.zip) — Vite + React Router SPA with Vercel /api functions on Supabase",
   "capabilities": [
-    {"capability": "code: 13 pages, calculators, design engines, components", "source": "src/**", "outcome": "port to TanStack Start routes", "status": "in_progress", "next_action": "port pages to src/routes"},
-    {"capability": "theme: Tajawal/Cairo fonts, RTL Arabic, scrollbar, print styles", "source": "src/index.css, index.html", "outcome": "port to src/styles.css + root head", "status": "in_progress", "next_action": "port"},
-    {"capability": "schema: products, articles, projects, quote_requests", "source": "api/*.js (inferred, no schema file)", "outcome": "migrate to Lovable Cloud with RLS", "status": "in_progress", "next_action": "create migration"},
-    {"capability": "records: products, articles, projects, quote_requests", "source": "source Supabase database", "outcome": "migrate", "status": "pending", "next_action": "user exports CSV/JSON per table"},
-    {"capability": "auth identities (admin users)", "source": "source Supabase auth", "outcome": "migrate to Lovable Cloud auth; first-login email verification + new password", "status": "pending", "next_action": "user exports auth users (id, email)"},
-    {"capability": "authorization: /admin requires admin", "source": "ProtectedRoute (any signed-in user) + unauthenticated /api writes", "outcome": "admin role via user_roles + RLS", "status": "in_progress", "next_action": "implement"},
-    {"capability": "Google sign-in", "source": "custom Google OAuth proxy (VITE_GOOGLE_AUTH_PROXY)", "outcome": "replace with Lovable Cloud managed Google sign-in", "status": "in_progress", "next_action": "implement"},
-    {"capability": "public endpoints /api/products, /api/articles, /api/projects, /api/quote-requests", "source": "api/*.js (Vercel)", "outcome": "replaced by direct Cloud reads/writes under RLS; only called by the app itself", "status": "in_progress", "next_action": "confirm no external callers"},
-    {"capability": "platform metadata: FULLSTACK_* db wake, arena recording scripts, .vite-source-tags", "source": "api/db-wake.js, index.html, .vite-source-tags.js", "outcome": "drop (source platform runtime)", "status": "done", "next_action": "none"},
-    {"capability": "WhatsApp contact links", "source": "lib/constants WHATSAPP_NUMBER", "outcome": "preserve", "status": "in_progress", "next_action": "port"},
-    {"capability": "static images", "source": "public/images/*.jpg", "outcome": "preserve as public files", "status": "in_progress", "next_action": "copy"},
-    {"capability": "uploaded file bytes / storage", "source": "none detected (image_url fields only)", "outcome": "none", "status": "done", "next_action": "none"},
-    {"capability": "schedules, webhooks, payments, email, AI", "source": "none detected", "outcome": "none", "status": "done", "next_action": "none"},
-    {"capability": "cutover: domain / DNS", "source": "Vercel", "outcome": "user publishes in Lovable and points domain", "status": "pending", "next_action": "after verification"},
-    {"capability": "verification", "source": "-", "outcome": "build, routes, CRUD, auth", "status": "pending", "next_action": "verify after build"}
+    {
+      "capability": "code: 13 pages, calculators, design engines, components",
+      "source": "src/**",
+      "outcome": "port to TanStack Start routes",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "theme: Tajawal/Cairo fonts, RTL Arabic, scrollbar, print styles",
+      "source": "src/index.css, index.html",
+      "outcome": "port to src/styles.css + root head",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "schema: products, articles, projects, quote_requests",
+      "source": "api/*.js (inferred, no schema file)",
+      "outcome": "migrate to Lovable Cloud with RLS",
+      "status": "verified",
+      "next_action": "none"
+    },
+    {
+      "capability": "records: products, articles, projects, quote_requests",
+      "source": "source Supabase database",
+      "outcome": "migrate",
+      "status": "pending",
+      "next_action": "user exports CSV/JSON per table"
+    },
+    {
+      "capability": "auth identities (admin users)",
+      "source": "source Supabase auth",
+      "outcome": "migrate to Lovable Cloud auth; first-login email verification + new password",
+      "status": "pending",
+      "next_action": "user exports auth users (id, email)"
+    },
+    {
+      "capability": "authorization: /admin requires admin",
+      "source": "ProtectedRoute (any signed-in user) + unauthenticated /api writes",
+      "outcome": "admin role via user_roles + RLS",
+      "status": "verified",
+      "next_action": "assign admin email (awaiting user answer)"
+    },
+    {
+      "capability": "Google sign-in",
+      "source": "custom Google OAuth proxy (VITE_GOOGLE_AUTH_PROXY)",
+      "outcome": "replace with Lovable Cloud managed Google sign-in",
+      "status": "done",
+      "next_action": "verify a real Google sign-in in preview"
+    },
+    {
+      "capability": "public endpoints /api/products, /api/articles, /api/projects, /api/quote-requests",
+      "source": "api/*.js (Vercel)",
+      "outcome": "replaced by direct Cloud reads/writes under RLS; only called by the app itself",
+      "status": "done",
+      "next_action": "none; no external callers found in source"
+    },
+    {
+      "capability": "platform metadata: FULLSTACK_* db wake, arena recording scripts, .vite-source-tags",
+      "source": "api/db-wake.js, index.html, .vite-source-tags.js",
+      "outcome": "drop (source platform runtime)",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "WhatsApp contact links",
+      "source": "lib/constants WHATSAPP_NUMBER",
+      "outcome": "preserve",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "static images",
+      "source": "public/images/*.jpg",
+      "outcome": "preserve as public files",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "uploaded file bytes / storage",
+      "source": "none detected (image_url fields only)",
+      "outcome": "none",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "schedules, webhooks, payments, email, AI",
+      "source": "none detected",
+      "outcome": "none",
+      "status": "done",
+      "next_action": "none"
+    },
+    {
+      "capability": "cutover: domain / DNS",
+      "source": "Vercel",
+      "outcome": "user publishes in Lovable and points domain",
+      "status": "pending",
+      "next_action": "after verification"
+    },
+    {
+      "capability": "verification",
+      "source": "-",
+      "outcome": "build, routes, CRUD, auth",
+      "status": "partial",
+      "next_action": "build, typecheck, all routes, quote submit, project save, admin CRUD and RLS verified; imported-user sign-in pending user export"
+    }
   ]
 }
