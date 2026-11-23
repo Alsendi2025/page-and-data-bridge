@@ -9,7 +9,6 @@ const DEFAULT_ADV: AdvancedSettings = {
   batteryType: 'lifepo4',
   systemType: 'solar-battery',
   autonomyHours: 12,
-  panelWattage: 500,
 };
 
 export default function MethodDaily({ onOutput }: { onOutput: (o: MethodOutput) => void }) {
@@ -32,7 +31,6 @@ export default function MethodDaily({ onOutput }: { onOutput: (o: MethodOutput) 
       batteryType: adv.batteryType,
       systemType: adv.systemType,
       autonomyHours: adv.autonomyHours,
-      panelWattage: adv.panelWattage,
       assumptions: DEFAULT_ASSUMPTIONS,
       methodLabel: 'حسب الاستهلاك اليومي',
       ready: dailyEnergyWh > 0,

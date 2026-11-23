@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings2, ChevronDown } from 'lucide-react';
-import { BATTERY_TYPES, SYSTEM_TYPES, MARKET_WATTAGES, type BatteryType, type SystemType } from '@/lib/designEngine';
+import { BATTERY_TYPES, SYSTEM_TYPES, type BatteryType, type SystemType } from '@/lib/designEngine';
 import type { AdvancedSettings } from './types';
 
 export default function AdvancedOptions({
@@ -65,18 +65,9 @@ export default function AdvancedOptions({
             />
             <span className="mt-1 block text-[11px] text-slate-400">كم ساعة تريد أن تعمل المنظومة دون إنتاج شمسي.</span>
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">قدرة اللوح (واط)</span>
-            <select
-              value={value.panelWattage}
-              onChange={(e) => set('panelWattage', Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400"
-            >
-              {MARKET_WATTAGES.map((w) => (
-                <option key={w} value={w}>{w}W</option>
-              ))}
-            </select>
-          </label>
+          <div className="flex items-start gap-2 rounded-xl bg-teal-50 p-3 text-[11px] leading-relaxed text-teal-700">
+            <span>قدرة اللوح الشمسي تُختار تلقائياً بالقدرة الأنسب لحجم منظومتك، ويمكنك تغييرها بعد ظهور التقرير.</span>
+          </div>
         </div>
       )}
     </div>

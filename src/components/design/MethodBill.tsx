@@ -9,7 +9,6 @@ const DEFAULT_ADV: AdvancedSettings = {
   batteryType: 'lifepo4',
   systemType: 'solar-battery',
   autonomyHours: 12,
-  panelWattage: 500,
 };
 
 type Period = 'weekly' | 'monthly' | 'custom';
@@ -53,7 +52,6 @@ export default function MethodBill({ onOutput }: { onOutput: (o: MethodOutput) =
       batteryType: adv.batteryType,
       systemType: adv.systemType,
       autonomyHours: adv.autonomyHours,
-      panelWattage: adv.panelWattage,
       assumptions: DEFAULT_ASSUMPTIONS,
       methodLabel: 'حسب الفاتورة',
       ready: dailyEnergyWh > 0,

@@ -52,12 +52,50 @@ export const PANEL_SPECS: Record<number, { vmp: number; imp: number; voc: number
   100: { vmp: 18.0, imp: 5.56, voc: 22.0, isc: 5.9 },
   150: { vmp: 18.0, imp: 8.33, voc: 22.0, isc: 8.8 },
   300: { vmp: 32.0, imp: 9.4, voc: 38.0, isc: 9.9 },
-  350: { vmp: 34.0, imp: 10.3, voc: 41.0, isc: 10.9 },
-  500: { vmp: 41.0, imp: 12.2, voc: 49.0, isc: 12.9 },
+  410: { vmp: 31.3, imp: 13.1, voc: 37.5, isc: 13.9 },
+  550: { vmp: 41.95, imp: 13.12, voc: 49.8, isc: 13.98 },
+  580: { vmp: 43.35, imp: 13.38, voc: 52.0, isc: 14.1 },
   700: { vmp: 41.5, imp: 16.9, voc: 49.5, isc: 17.8 },
 };
 
-export const MARKET_WATTAGES = [100, 150, 300, 350, 500, 700];
+export const MARKET_WATTAGES = [100, 150, 300, 410, 550, 580, 700];
+
+/** ترتيب تفضيل الاختيار التلقائي: 550W هو الأكثر توفراً وأفضل قيمة في السوق اليمني */
+export const AUTO_PANEL_PREFERENCE = [550, 580, 410, 300, 150, 100];
+/** أقصى زيادة مقبولة في قدرة المصفوفة عن المطلوب عند الاختيار التلقائي */
+export const MAX_AUTO_OVERSIZE = 0.35;
+
+interface StringLimits { vMin: number; vMax: number; batteryVoltage: number }
+
+/** عدد الألواح في السلسلة الواحدة: الحد الأدنى الذي يتجاوز جهد البطارية بهامش 30% دون تجاوز حد MPPT */
+function seriesPerString(wattage: number, lim: StringLimits): number {
+  const spec = (PANEL_SPECS[wattage] ?? PANEL_SPECS[550])!;
+  const minSeries = Math.ceil((lim.batteryVoltage * 1.3) / spec.vmp);
+  const maxSeries = Math.max(1, Math.floor(lim.vMax / spec.vmp));
+  return Math.max(1, Math.min(maxSeries, minSeries));
+}
+
+/** عدد الألواح بعد التقريب لسلاسل متساوية (لا يجوز توازي سلاسل غير متساوية) */
+function panelsForWattage(requiredWattage: number, wattage: number, lim: StringLimits) {
+  const perString = seriesPerString(wattage, lim);
+  const raw = Math.max(1, Math.ceil(requiredWattage / wattage));
+  const numStrings = Math.ceil(raw / perString);
+  return { perString, numStrings, numPanels: numStrings * perString };
+}
+
+/** اختيار قدرة اللوح المثالية تلقائياً حسب حجم المنظومة وجهد النظام */
+export function pickPanelWattage(requiredWattage: number, lim: StringLimits): number {
+  const req = Math.max(1, requiredWattage);
+  let best = AUTO_PANEL_PREFERENCE[0]!;
+  let bestOver = Infinity;
+  for (const w of AUTO_PANEL_PREFERENCE) {
+    const { numPanels } = panelsForWattage(req, w, lim);
+    const over = (numPanels * w) / req - 1;
+    if (over <= MAX_AUTO_OVERSIZE) return w;
+    if (over < bestOver) { bestOver = over; best = w; }
+  }
+  return best;
+}
 
 export interface DesignAssumptions {
   /** معامل الأداء الإجمالي (حرارة + أتربة + عدم تطابق) 0..1 */
@@ -89,7 +127,8 @@ export interface DesignInput {
   batteryType: BatteryType;
   systemType: SystemType;
   usageType: UsageType;
-  panelWattage: number;
+  /** قدرة اللوح المختارة يدوياً؛ بدونها يختار المحرك القدرة المثالية تلقائياً */
+  panelWattage?: number | null | undefined;
   assumptions: DesignAssumptions;
   /** أوزان استهلاك 24 ساعة (اختياري) */
   hourlyWeights?: number[] | undefined;
@@ -107,6 +146,10 @@ export interface DesignResult {
     arrayWattage: number;
     numPanels: number;
     panelWattage: number;
+    /** true إذا اختيرت قدرة اللوح تلقائياً */
+    panelAuto: boolean;
+    /** القدرة التي يقترحها المحرك تلقائياً (حتى عند التعديل اليدوي) */
+    recommendedPanelWattage: number;
     panelVmp: number;
     panelImp: number;
     panelsPerString: number;
@@ -218,11 +261,6 @@ export function designSystem(input: DesignInput): DesignResult {
     (input.systemType === 'grid-tied' ? 1 : batt.efficiency);
   const requiredEnergyWh = daily / Math.max(0.3, energyPath);
   const requiredWattage = requiredEnergyWh / Math.max(1, input.psh * pr);
-  const panelWattage = input.panelWattage;
-  const spec = (PANEL_SPECS[panelWattage] ?? PANEL_SPECS[500])!;
-  const numPanels = Math.max(1, Math.ceil(requiredWattage / panelWattage));
-  const arrayWattage = numPanels * panelWattage;
-
   // ---- العاكس ----
   const recommendedW = nextStandard(Math.max(input.peakLoadW * 1.25, 500), INVERTER_SIZES);
   const batteryVoltage = recommendedW < 1500 ? 12 : recommendedW < 3500 ? 24 : 48;
@@ -233,12 +271,20 @@ export function designSystem(input: DesignInput): DesignResult {
   const vMin = batteryVoltage >= 48 ? 60 : batteryVoltage >= 24 ? 40 : 20;
   const iMax = batteryVoltage >= 48 ? 30 : batteryVoltage >= 24 ? 40 : 60;
 
-  // ---- توصيل الألواح (سلسلة/توازي) ----
-  const minSeriesByV = Math.ceil((batteryVoltage * 1.3) / spec.vmp);
-  const maxSeriesByV = Math.max(1, Math.floor(vMax / spec.vmp));
-  let panelsPerString = Math.min(maxSeriesByV, Math.max(minSeriesByV, 1));
-  if (panelsPerString < 1) panelsPerString = 1;
-  const numStrings = Math.ceil(numPanels / panelsPerString);
+  // ---- اختيار اللوح وتوصيل الألواح (سلسلة/توازي) ----
+  const limits: StringLimits = { vMin, vMax, batteryVoltage };
+  const recommendedPanelWattage = pickPanelWattage(requiredWattage, limits);
+  const manualWattage = input.panelWattage && PANEL_SPECS[input.panelWattage] ? input.panelWattage : null;
+  const panelAuto = manualWattage === null;
+  const panelWattage = manualWattage ?? recommendedPanelWattage;
+  const spec = PANEL_SPECS[panelWattage]!;
+  const { perString: panelsPerString, numStrings, numPanels } = panelsForWattage(requiredWattage, panelWattage, limits);
+  const arrayWattage = numPanels * panelWattage;
+  assumptionNotes.push(
+    panelAuto
+      ? `قدرة اللوح ${panelWattage}W اختيرت تلقائياً كأنسب قدرة متوفرة في السوق لحجم المنظومة (${numStrings} سلسلة متساوية × ${panelsPerString} لوح).`
+      : `قدرة اللوح ${panelWattage}W محددة من المستخدم — القدرة المقترحة تلقائياً ${recommendedPanelWattage}W.`
+  );
   const stringVmp = roundTo(panelsPerString * spec.vmp, 1);
   const stringImp = roundTo(spec.imp, 1);
 
@@ -347,6 +393,8 @@ export function designSystem(input: DesignInput): DesignResult {
       arrayWattage,
       numPanels,
       panelWattage,
+      panelAuto,
+      recommendedPanelWattage,
       panelVmp: spec.vmp,
       panelImp: spec.imp,
       panelsPerString,

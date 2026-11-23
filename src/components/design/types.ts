@@ -6,7 +6,6 @@ export interface AdvancedSettings {
   batteryType: BatteryType;
   systemType: SystemType;
   autonomyHours: number;
-  panelWattage: number;
 }
 
 export interface MethodOutput {
@@ -19,7 +18,6 @@ export interface MethodOutput {
   batteryType: BatteryType;
   systemType: SystemType;
   autonomyHours: number;
-  panelWattage: number;
   assumptions: DesignAssumptions;
   methodLabel: string;
   ready: boolean;
@@ -33,4 +31,6 @@ export interface ManualAppliance {
   unit: 'W' | 'kW';
   hours: number;
   period: 'day' | 'night' | '24h';
+  /** القيم المقترحة حسب نوع الجهاز (تظهر كمرجع بجانب كل خانة) */
+  suggested?: { qty: number; powerW: number; hours: number; period: 'day' | 'night' | '24h' } | undefined;
 }

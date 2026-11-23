@@ -79,7 +79,8 @@ export const BATTERY_PRESETS = [
   { label: 'بطارية 48V 100Ah', voltage: 48, capacityAh: 100 },
 ];
 
-export const WHATSAPP_NUMBER = '967700000000'; // الرقم الرسمي للمنصة (يُعدّل من الإدارة)
+/** رقم واتساب الرسمي للمنصة (775520241) بالصيغة الدولية — يُستخدم في كل أزرار واتساب */
+export const WHATSAPP_NUMBER = '967775520241';
 
 export const SERVICE_CATEGORIES = [
   'تصميم منظومة',

@@ -1,42 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin, Search, Plus, Trash2, Info, Zap } from 'lucide-react';
+import { MapPin, Plus, Trash2, Info, Zap, Lightbulb, PackagePlus } from 'lucide-react';
 import { YEMEN_CITIES } from '@/lib/constants';
 import {
-  DEFAULT_ASSUMPTIONS, USAGE_TYPES, BATTERY_TYPES, SYSTEM_TYPES, MARKET_WATTAGES,
+  DEFAULT_ASSUMPTIONS, USAGE_TYPES, BATTERY_TYPES, SYSTEM_TYPES,
   type UsageType, type BatteryType, type SystemType,
 } from '@/lib/designEngine';
 import type { ManualAppliance, MethodOutput } from './types';
+import { APPLIANCE_CATALOG, CUSTOM_APPLIANCE, findTemplate, type ApplianceTemplate } from './applianceCatalog';
 
 let uid = 1;
 const nid = () => `m${uid++}`;
-
-const COMMON: Omit<ManualAppliance, 'id'>[] = [
-  { name: 'إضاءة LED', qty: 8, powerW: 10, unit: 'W', hours: 5, period: 'night' },
-  { name: 'مروحة سقف', qty: 3, powerW: 60, unit: 'W', hours: 8, period: 'night' },
-  { name: 'ثلاجة', qty: 1, powerW: 150, unit: 'W', hours: 8, period: '24h' },
-  { name: 'تلفاز', qty: 1, powerW: 90, unit: 'W', hours: 6, period: 'night' },
-  { name: 'مكيف هواء سبليت', qty: 1, powerW: 1200, unit: 'W', hours: 6, period: 'day' },
-  { name: 'غسالة', qty: 1, powerW: 500, unit: 'W', hours: 1, period: 'day' },
-  { name: 'مضخة مياه', qty: 1, powerW: 0.75, unit: 'kW', hours: 2, period: 'day' },
-  { name: 'كمبيوتر / لابتوب', qty: 1, powerW: 120, unit: 'W', hours: 6, period: 'day' },
-  { name: 'راوتر إنترنت', qty: 1, powerW: 15, unit: 'W', hours: 24, period: '24h' },
-  { name: 'ميكروويف', qty: 1, powerW: 1000, unit: 'W', hours: 1, period: 'day' },
-  { name: 'سخان ماء', qty: 1, powerW: 1500, unit: 'W', hours: 2, period: 'day' },
-  { name: 'إضاءة متجر', qty: 10, powerW: 20, unit: 'W', hours: 8, period: 'day' },
-  { name: 'ماكينة خياطة', qty: 1, powerW: 300, unit: 'W', hours: 6, period: 'day' },
-  { name: 'مضخة ري زراعية', qty: 1, powerW: 2.2, unit: 'kW', hours: 4, period: 'day' },
-  { name: 'حاسوب مكتبي', qty: 2, powerW: 200, unit: 'W', hours: 8, period: 'day' },
-  { name: 'طابعة / ناسخة', qty: 1, powerW: 300, unit: 'W', hours: 3, period: 'day' },
-];
+const CUSTOM_KEY = '__custom__';
 
 const PERIODS: { value: ManualAppliance['period']; label: string }[] = [
   { value: 'day', label: 'نهاراً' },
   { value: 'night', label: 'ليلاً' },
-  { value: '24h', label: '24 ساعة' },
+  { value: '24h', label: 'مستمر (24 ساعة)' },
 ];
+const periodLabel = (p: ManualAppliance['period']) => PERIODS.find((x) => x.value === p)?.label ?? '';
 
 function periodHours(p: ManualAppliance['period']): number[] {
-  if (p === 'day') return [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  if (p === 'day') return [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
   if (p === 'night') return [18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5];
   return Array.from({ length: 24 }, (_, i) => i);
 }
@@ -53,21 +37,21 @@ function buildWeights(appliances: ManualAppliance[]): number[] {
   return w;
 }
 
+const fmtPower = (w: number, unit: 'W' | 'kW') => (unit === 'kW' ? `${w / 1000} kW` : `${w} W`);
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <span className="mt-1 block text-[10px] text-teal-600">مقترح: <span dir="ltr">{children}</span></span>;
+}
+
 export default function MethodManual({ onOutput }: { onOutput: (o: MethodOutput) => void }) {
   const [city, setCity] = useState('صنعاء');
   const [usageType, setUsageType] = useState<UsageType>('home');
-  const [appliances, setAppliances] = useState<ManualAppliance[]>([
-    { ...(COMMON[0] as Omit<ManualAppliance, 'id'>), id: nid() },
-    { ...(COMMON[2] as Omit<ManualAppliance, 'id'>), id: nid() },
-    { ...(COMMON[3] as Omit<ManualAppliance, 'id'>), id: nid() },
-    { ...(COMMON[8] as Omit<ManualAppliance, 'id'>), id: nid() },
-  ]);
-  const [search, setSearch] = useState('');
+  const [appliances, setAppliances] = useState<ManualAppliance[]>([]);
+  const [picking, setPicking] = useState(false);
   const [mode, setMode] = useState<'simultaneous' | 'alternating'>('simultaneous');
   const [batteryType, setBatteryType] = useState<BatteryType>('lifepo4');
   const [systemType, setSystemType] = useState<SystemType>('solar-battery');
   const [autonomyHours, setAutonomyHours] = useState(12);
-  const [panelWattage, setPanelWattage] = useState(500);
 
   const dailyEnergyWh = useMemo(
     () => appliances.reduce((s, a) => s + a.qty * a.powerW * a.hours, 0),
@@ -95,19 +79,31 @@ export default function MethodManual({ onOutput }: { onOutput: (o: MethodOutput)
       batteryType,
       systemType,
       autonomyHours,
-      panelWattage,
       assumptions: DEFAULT_ASSUMPTIONS,
       methodLabel: 'الحساب اليدوي التفصيلي',
       ready: dailyEnergyWh > 0,
     });
-  }, [city, psh, dailyEnergyWh, peakLoadW, usageType, weights, batteryType, systemType, autonomyHours, panelWattage, onOutput]);
+  }, [city, psh, dailyEnergyWh, peakLoadW, usageType, weights, batteryType, systemType, autonomyHours, onOutput]);
 
   const update = (id: string, patch: Partial<ManualAppliance>) =>
     setAppliances((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const remove = (id: string) => setAppliances((prev) => prev.filter((a) => a.id !== id));
-  const add = (p: Omit<ManualAppliance, 'id'>) => setAppliances((prev) => [...prev, { ...p, id: nid() }]);
 
-  const filtered = COMMON.filter((c) => c.name.includes(search) && !appliances.some((a) => a.name === c.name));
+  const attach = (key: string) => {
+    if (!key) return;
+    const isCustom = key === CUSTOM_KEY;
+    const t: ApplianceTemplate | undefined = isCustom ? CUSTOM_APPLIANCE : findTemplate(key);
+    if (!t) return;
+    setAppliances((prev) => [
+      ...prev,
+      {
+        ...t,
+        id: nid(),
+        suggested: isCustom ? undefined : { qty: t.qty, powerW: t.powerW, hours: t.hours, period: t.period },
+      },
+    ]);
+    setPicking(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -131,51 +127,71 @@ export default function MethodManual({ onOutput }: { onOutput: (o: MethodOutput)
 
       {/* قائمة الأجهزة */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
             <Zap className="h-4 w-4 text-teal-600" /> الأجهزة الكهربائية
+            {appliances.length > 0 && <span className="text-xs font-medium text-slate-400">({appliances.length})</span>}
           </h3>
           <span className="rounded-lg bg-teal-50 px-3 py-1 text-xs font-semibold text-teal-700" dir="ltr">
             {(dailyEnergyWh / 1000).toFixed(2)} kWh/يوم
           </span>
         </div>
 
-        <div className="space-y-2">
-          {appliances.length === 0 && (
-            <p className="rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-400">أضف جهازاً من القائمة أدناه أو أضف جهازاً مخصصاً.</p>
+        <div className="space-y-3">
+          {appliances.length === 0 && !picking && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-6 text-center">
+              <PackagePlus className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-2 text-sm font-semibold text-slate-600">لم تُضف أي أجهزة بعد</p>
+              <p className="mt-1 text-xs text-slate-400">اضغط «إرفاق جهاز» واختر أجهزتك واحداً تلو الآخر.</p>
+            </div>
           )}
+
           {appliances.map((a) => {
             const displayPower = a.unit === 'kW' ? a.powerW / 1000 : a.powerW;
+            const s = a.suggested;
             return (
               <div key={a.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
                 <div className="flex items-center gap-2">
-                  <input value={a.name} onChange={(e) => update(a.id, { name: e.target.value })} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-medium text-slate-800 outline-none focus:border-teal-400" />
-                  <button onClick={() => remove(a.id)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+                  <input
+                    value={a.name}
+                    onChange={(e) => update(a.id, { name: e.target.value })}
+                    placeholder="اسم الجهاز"
+                    aria-label="اسم الجهاز"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-800 outline-none focus:border-teal-400"
+                  />
+                  <span className="hidden shrink-0 text-[11px] text-slate-400 sm:inline" dir="ltr">
+                    {((a.qty * a.powerW * a.hours) / 1000).toFixed(2)} kWh
+                  </span>
+                  <button onClick={() => remove(a.id)} aria-label={`حذف ${a.name || 'الجهاز'}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <label className="block">
-                    <span className="mb-0.5 block text-[11px] text-slate-400">العدد</span>
+                    <span className="mb-0.5 block text-[11px] text-slate-500">العدد</span>
                     <input type="number" min={1} value={a.qty} onChange={(e) => update(a.id, { qty: Math.max(1, Number(e.target.value)) })} dir="ltr" className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-teal-400" />
+                    {s && <Hint>{s.qty}</Hint>}
                   </label>
                   <label className="block">
-                    <span className="mb-0.5 block text-[11px] text-slate-400">القدرة</span>
+                    <span className="mb-0.5 block text-[11px] text-slate-500">القدرة الكهربائية</span>
                     <div className="flex">
-                      <input type="number" min={0} step={a.unit === 'kW' ? 0.05 : 1} value={displayPower} onChange={(e) => { const v = Math.max(0, Number(e.target.value)); update(a.id, { powerW: a.unit === 'kW' ? v * 1000 : v }); }} dir="ltr" className="w-full rounded-r-lg border border-slate-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-teal-400" />
-                      <select value={a.unit} onChange={(e) => { const u = e.target.value as 'W' | 'kW'; update(a.id, { unit: u, powerW: u === 'kW' ? a.powerW / 1000 : a.powerW }); }} className="rounded-l-lg border border-r-0 border-slate-200 bg-white px-1 text-xs outline-none">
+                      <input type="number" min={0} step={a.unit === 'kW' ? 0.05 : 1} value={displayPower} onChange={(e) => { const v = Math.max(0, Number(e.target.value)); update(a.id, { powerW: a.unit === 'kW' ? Math.round(v * 1000) : v }); }} dir="ltr" className="w-full min-w-0 rounded-r-lg border border-slate-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-teal-400" />
+                      <select value={a.unit} onChange={(e) => update(a.id, { unit: e.target.value as 'W' | 'kW' })} aria-label="وحدة القدرة" className="rounded-l-lg border border-r-0 border-slate-200 bg-white px-1 text-xs outline-none">
                         <option value="W">W</option>
                         <option value="kW">kW</option>
                       </select>
                     </div>
+                    {s && <Hint>{fmtPower(s.powerW, a.unit)}</Hint>}
                   </label>
                   <label className="block">
-                    <span className="mb-0.5 block text-[11px] text-slate-400">ساعات/يوم</span>
-                    <input type="number" min={0} max={24} step={0.5} value={a.hours} onChange={(e) => update(a.id, { hours: Math.max(0, Number(e.target.value)) })} dir="ltr" className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-teal-400" />
+                    <span className="mb-0.5 block text-[11px] text-slate-500">ساعات التشغيل/يوم</span>
+                    <input type="number" min={0} max={24} step={0.5} value={a.hours} onChange={(e) => update(a.id, { hours: Math.min(24, Math.max(0, Number(e.target.value))) })} dir="ltr" className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-center text-sm outline-none focus:border-teal-400" />
+                    {s && <Hint>{s.hours} h</Hint>}
                   </label>
                   <label className="block">
-                    <span className="mb-0.5 block text-[11px] text-slate-400">فترة التشغيل</span>
+                    <span className="mb-0.5 block text-[11px] text-slate-500">فترة التشغيل</span>
                     <select value={a.period} onChange={(e) => update(a.id, { period: e.target.value as ManualAppliance['period'] })} className="w-full rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-center text-sm outline-none focus:border-teal-400">
                       {PERIODS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
+                    {s && <span className="mt-1 block text-[10px] text-teal-600">مقترح: {periodLabel(s.period)}</span>}
                   </label>
                 </div>
               </div>
@@ -183,24 +199,43 @@ export default function MethodManual({ onOutput }: { onOutput: (o: MethodOutput)
           })}
         </div>
 
-        {/* البحث والإضافة */}
+        {/* إرفاق جهاز */}
         <div className="mt-4">
-          <div className="relative">
-            <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث عن جهاز شائع لإضافته..." className="w-full rounded-xl border border-slate-200 py-2 pr-9 pl-3 text-sm outline-none focus:border-teal-400" />
-          </div>
-          {filtered.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {filtered.slice(0, 8).map((c) => (
-                <button key={c.name} onClick={() => add(c)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-teal-300 hover:text-teal-700">
-                  + {c.name}
-                </button>
-              ))}
+          {picking ? (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/50 p-3">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-teal-800">اختر الجهاز من القائمة</span>
+                <select
+                  autoFocus
+                  defaultValue=""
+                  onChange={(e) => attach(e.target.value)}
+                  aria-label="اختر الجهاز"
+                  className="w-full rounded-xl border border-teal-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400"
+                >
+                  <option value="" disabled>— اختر جهازاً كهربائياً أو إلكترونياً —</option>
+                  {APPLIANCE_CATALOG.map((g) => (
+                    <optgroup key={g.group} label={g.group}>
+                      {g.items.map((i) => <option key={i.name} value={i.name}>{i.name}</option>)}
+                    </optgroup>
+                  ))}
+                  <optgroup label="غير موجود في القائمة؟">
+                    <option value={CUSTOM_KEY}>+ إضافة جهاز جديد يدوياً</option>
+                  </optgroup>
+                </select>
+              </label>
+              <button onClick={() => setPicking(false)} className="mt-2 text-xs font-medium text-slate-500 hover:text-slate-700">إلغاء</button>
             </div>
+          ) : (
+            <button onClick={() => setPicking(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+              <Plus className="h-4 w-4" /> إرفاق جهاز
+            </button>
           )}
-          <button onClick={() => add({ name: 'جهاز جديد', qty: 1, powerW: 100, unit: 'W', hours: 4, period: 'day' })} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700">
-            <Plus className="h-3.5 w-3.5" /> إضافة جهاز مخصص
-          </button>
+          {appliances.some((a) => a.suggested) && (
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] text-slate-400">
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+              الأرقام المقترحة قيم نموذجية لكل نوع جهاز — عدّلها حسب ملصق جهازك الفعلي.
+            </p>
+          )}
         </div>
       </div>
 
@@ -235,19 +270,16 @@ export default function MethodManual({ onOutput }: { onOutput: (o: MethodOutput)
             <span className="mb-1.5 block text-sm font-medium text-slate-700">ساعات الاستقلالية</span>
             <input type="number" min={0} max={72} value={autonomyHours} onChange={(e) => setAutonomyHours(Math.max(0, Number(e.target.value)))} dir="ltr" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-teal-400" />
           </label>
-          <label className="block">
+          <label className="block sm:col-span-2">
             <span className="mb-1.5 block text-sm font-medium text-slate-700">نوع النظام</span>
             <select value={systemType} onChange={(e) => setSystemType(e.target.value as SystemType)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-teal-400">
               {Object.entries(SYSTEM_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-700">قدرة اللوح (واط)</span>
-            <select value={panelWattage} onChange={(e) => setPanelWattage(Number(e.target.value))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-teal-400">
-              {MARKET_WATTAGES.map((w) => <option key={w} value={w}>{w}W</option>)}
-            </select>
-          </label>
         </div>
+        <p className="mt-3 rounded-xl bg-teal-50 p-3 text-[11px] leading-relaxed text-teal-700">
+          قدرة اللوح الشمسي تُختار تلقائياً بالقدرة الأنسب لحجم منظومتك، ويمكنك تغييرها بعد ظهور التقرير.
+        </p>
       </div>
     </div>
   );
