@@ -6,8 +6,11 @@ export function formatNumber(value: number, decimals = 0): string {
   });
 }
 
+/** يُعرض عندما لا يكون للمنتج سعر منشور — الأسعار تُقدَّم عبر طلب عرض سعر. */
+export const PRICE_ON_REQUEST = 'السعر عند الطلب';
+
 export function formatCurrency(yer?: number | null): string {
-  if (yer == null || !isFinite(yer)) return '—';
+  if (yer == null || !isFinite(yer)) return PRICE_ON_REQUEST;
   return `${formatNumber(yer)} ر.ي`;
 }
 

@@ -352,6 +352,7 @@ export default function Admin() {
                     <option value="inverter">عاكس</option>
                     <option value="charge_controller">منظم شحن</option>
                     <option value="cable">كابل</option>
+                    <option value="protection">حماية كهربائية</option>
                   </select>
                   <input type="number" placeholder="السعر (ر.ي)" value={productForm.price_yer} onChange={(e) => setProductForm({ ...productForm, price_yer: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" dir="ltr" />
                   <input type="number" placeholder="القدرة (W)" value={productForm.power_w} onChange={(e) => setProductForm({ ...productForm, power_w: e.target.value })} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400" dir="ltr" />

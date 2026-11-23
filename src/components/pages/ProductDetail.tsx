@@ -29,6 +29,7 @@ const CAT_LABEL: Record<string, string> = {
   inverter: 'عاكس',
   charge_controller: 'منظم شحن',
   cable: 'كابل',
+  protection: 'حماية كهربائية',
 };
 
 export default function ProductDetail() {

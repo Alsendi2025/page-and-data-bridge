@@ -29,6 +29,7 @@ const CATEGORIES = [
   { value: 'inverter', label: 'عواكس' },
   { value: 'charge_controller', label: 'منظمات شحن' },
   { value: 'cable', label: 'كابلات' },
+  { value: 'protection', label: 'حماية كهربائية' },
 ];
 
 function specLine(p: Product): string {
@@ -130,7 +131,7 @@ export default function Products() {
 
         <div className="mt-12 flex items-start gap-2 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs text-blue-700">
           <SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>الأسعار تقديرية للاستئناس فقط وقد تتغير حسب السوق والكمية. المنصة هي نقطة الاتصال التجارية المركزية — لا يتم التواصل المباشر مع التجار.</span>
+          <span>الأسعار تُقدَّم عند الطلب لأنها تتغير حسب سعر الصرف والكمية والتوفر. المنصة هي نقطة الاتصال التجارية المركزية — لا يتم التواصل المباشر مع التجار.</span>
         </div>
       </Container>
     </div>

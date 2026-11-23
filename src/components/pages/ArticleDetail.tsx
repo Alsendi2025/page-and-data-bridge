@@ -61,9 +61,18 @@ export default function ArticleDetail() {
           )}
 
           <div className="mt-8 space-y-5">
-            {paragraphs.map((p, i) => (
-              <p key={i} className="text-base leading-loose text-slate-700">{p}</p>
-            ))}
+            {paragraphs.map((p, i) =>
+              p.startsWith('## ') ? (
+                <h2 key={i} className="pt-4 text-xl font-bold text-slate-900">{p.slice(3)}</h2>
+              ) : p.startsWith('- ') ? (
+                <p key={i} className="flex gap-2 text-base leading-loose text-slate-700">
+                  <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
+                  <span>{p.slice(2)}</span>
+                </p>
+              ) : (
+                <p key={i} className="text-base leading-loose text-slate-700">{p}</p>
+              ),
+            )}
           </div>
 
           <div className="mt-10 rounded-2xl border border-teal-100 bg-teal-50 p-6">
