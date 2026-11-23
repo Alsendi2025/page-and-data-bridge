@@ -3,15 +3,15 @@ import {
   Info, Save, MessageCircle, CheckCircle2, HelpCircle,
 } from 'lucide-react';
 import type { DesignResult } from '@/lib/designEngine';
-import { BATTERY_TYPES } from '@/lib/designEngine';
+import { BATTERY_TYPES, MARKET_WATTAGES } from '@/lib/designEngine';
 import { formatNumber } from '@/lib/format';
 import CurveChart from './CurveChart';
 
-function SpecRow({ label, value }: { label: string; value: string }) {
+function SpecRow({ label, value, minor }: { label: string; value: string; minor?: boolean }) {
   return (
     <div className="flex items-center justify-between border-b border-slate-50 py-1.5 last:border-0">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-xs font-semibold text-slate-800" dir="ltr">{value}</span>
+      <span className={minor ? 'text-[11px] text-slate-400' : 'text-sm text-slate-600'}>{label}</span>
+      <span className={minor ? 'text-[11px] font-medium text-slate-500' : 'text-base font-bold text-slate-900'} dir="ltr">{value}</span>
     </div>
   );
 }
@@ -40,15 +40,19 @@ export default function DesignReport({
   city,
   methodLabel,
   onSave,
-  onQuote,
+  quoteUrl,
   saving,
+  panelOverride,
+  onPanelChange,
 }: {
   result: DesignResult;
   city: string;
   methodLabel: string;
   onSave?: () => void;
-  onQuote?: () => void;
+  quoteUrl?: string;
   saving?: boolean;
+  panelOverride?: number | null;
+  onPanelChange?: (w: number | null) => void;
 }) {
   const { system, inverter, battery, production, verification, assumptions, warnings } = result;
 
@@ -60,22 +64,6 @@ export default function DesignReport({
 
   return (
     <div className="space-y-5">
-      {/* Actions */}
-      {(onSave || onQuote) && (
-        <div className="flex flex-wrap gap-2">
-          {onQuote && (
-            <button onClick={onQuote} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600">
-              <MessageCircle className="h-4 w-4" /> اطلب عرض سعر / تنفيذ
-            </button>
-          )}
-          {onSave && (
-            <button onClick={onSave} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-50">
-              <Save className="h-4 w-4" /> {saving ? 'جارٍ الحفظ...' : 'حفظ المشروع'}
-            </button>
-          )}
-        </div>
-      )}
-
       {/* الملخص البارز */}
       <div className="overflow-hidden rounded-2xl bg-gradient-to-l from-slate-900 to-slate-800 p-6 text-white shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -104,6 +92,26 @@ export default function DesignReport({
         )}
       </div>
 
+      {onPanelChange && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
+          <div>
+            <p className="text-sm font-bold text-slate-800">قدرة اللوح الشمسي</p>
+            <p className="text-[11px] text-slate-500">
+              {system.panelAuto ? 'اختيرت تلقائياً كأنسب قدرة لحجم منظومتك.' : `محددة يدوياً — المقترح تلقائياً ${system.recommendedPanelWattage}W.`} غيّرها لتطابق المتوفر لديك وسيُعاد الحساب فوراً.
+            </p>
+          </div>
+          <select
+            aria-label="قدرة اللوح الشمسي"
+            value={panelOverride ?? 'auto'}
+            onChange={(e) => onPanelChange(e.target.value === 'auto' ? null : Number(e.target.value))}
+            className="rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus:border-teal-400"
+          >
+            <option value="auto">تلقائي — {system.recommendedPanelWattage}W (موصى به)</option>
+            {MARKET_WATTAGES.map((w) => <option key={w} value={w}>{w}W</option>)}
+          </select>
+        </div>
+      )}
+
       {/* المنحنى */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -114,22 +122,22 @@ export default function DesignReport({
       </div>
 
       {/* بطاقات المواصفات */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4">
         <SpecCard icon={<Sun className="h-4 w-4" />} title="الألواح الكهروضوئية" accent="bg-amber-50 text-amber-600">
           <SpecRow label="القدرة الإجمالية" value={`${formatNumber(system.arrayWattage)} W (${system.totalCapacityKw} kW)`} />
           <SpecRow label="قدرة اللوح" value={`${system.panelWattage} W`} />
           <SpecRow label="عدد الألواح" value={`${system.numPanels} لوح`} />
-          <SpecRow label="التوصيل" value={`${system.panelsPerString} تسلسلي × ${system.numStrings} متوازي`} />
-          <SpecRow label="Vmp / Imp للوح" value={`${system.panelVmp}V / ${system.panelImp}A`} />
+          <SpecRow minor label="التوصيل" value={`${system.panelsPerString} تسلسلي × ${system.numStrings} متوازي`} />
+          <SpecRow minor label="Vmp / Imp للوح" value={`${system.panelVmp}V / ${system.panelImp}A`} />
         </SpecCard>
 
         <SpecCard icon={<Cpu className="h-4 w-4" />} title="الإنفرتر (العاكس)" accent="bg-blue-50 text-blue-600">
           <SpecRow label="القدرة" value={`${formatNumber(inverter.recommendedW)} W`} />
-          <SpecRow label="عدد الأجهزة" value={`${inverter.numInverters}`} />
+          <SpecRow minor label="عدد الأجهزة" value={`${inverter.numInverters}`} />
           <SpecRow label="جهد بنك البطاريات" value={`${inverter.batteryVoltage} V`} />
-          <SpecRow label="مداخل MPPT" value={`${inverter.mpptInputs}`} />
-          <SpecRow label="نطاق جهد الألواح" value={`${inverter.vMin}–${inverter.vMax} V`} />
-          <SpecRow label="حد تيار الدخل" value={`${inverter.iMax} A`} />
+          <SpecRow minor label="مداخل MPPT" value={`${inverter.mpptInputs}`} />
+          <SpecRow minor label="نطاق جهد الألواح" value={`${inverter.vMin}–${inverter.vMax} V`} />
+          <SpecRow minor label="حد تيار الدخل" value={`${inverter.iMax} A`} />
         </SpecCard>
 
         <SpecCard icon={<BatteryCharging className="h-4 w-4" />} title="البطاريات" accent="bg-teal-50 text-teal-600">
@@ -139,7 +147,7 @@ export default function DesignReport({
               <SpecRow label="الجهد الاسمي" value={`${battery.voltage} V`} />
               <SpecRow label="السعة الاسمية" value={`${formatNumber(battery.nominalAh)} Ah (${formatNumber(battery.nominalWh / 1000, 1)} kWh)`} />
               <SpecRow label="السعة القابلة للاستخدام" value={`${formatNumber(battery.usableAh)} Ah (${formatNumber(battery.usableWh / 1000, 1)} kWh)`} />
-              <SpecRow label="عمق التفريغ DoD" value={`${Math.round(battery.dod * 100)}%`} />
+              <SpecRow minor label="عمق التفريغ DoD" value={`${Math.round(battery.dod * 100)}%`} />
               <SpecRow label="عدد الوحدات" value={`${battery.numUnits} (${battery.seriesCount} تسلسلي × ${battery.parallelStrings} متوازي)`} />
             </>
           ) : (
@@ -194,6 +202,25 @@ export default function DesignReport({
               <li key={i} className="flex gap-1.5 text-[11px] leading-relaxed text-amber-700"><span>•</span><span>{w}</span></li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {(quoteUrl || onSave) && (
+        <div className="space-y-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5">
+          <p className="text-sm font-bold text-slate-800">جاهز للتنفيذ؟</p>
+          <p className="text-[11px] text-slate-500">أرسل ملخص منظومتك عبر واتساب واحصل على عرض سعر من فريقنا.</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {quoteUrl && (
+              <a href={quoteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-600">
+                <MessageCircle className="h-4 w-4" /> اطلب السعر عبر واتساب
+              </a>
+            )}
+            {onSave && (
+              <button onClick={onSave} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-50">
+                <Save className="h-4 w-4" /> {saving ? 'جارٍ الحفظ...' : 'حفظ المشروع'}
+              </button>
+            )}
+          </div>
         </div>
       )}
 

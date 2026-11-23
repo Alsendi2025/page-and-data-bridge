@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { Zap, Receipt, SlidersHorizontal, CheckCircle2, Info } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Zap, Receipt, SlidersHorizontal, CheckCircle2, Info, Calculator } from 'lucide-react';
+import { WHATSAPP_NUMBER } from '@/lib/constants';
 import { Container } from '@/components/site-ui';
 import { saveProject } from '@/lib/api';
 import { designSystem } from '@/lib/designEngine';
@@ -19,14 +19,16 @@ const METHODS: { key: Method; label: string; icon: typeof Zap; desc: string }[] 
 ];
 
 export default function DesignNormal() {
-  const navigate = useNavigate();
   const [method, setMethod] = useState<Method>('daily');
+  const [calculated, setCalculated] = useState(false);
+  const [panelOverride, setPanelOverride] = useState<number | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
   const [output, setOutput] = useState<MethodOutput | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const result = useMemo(() => {
-    if (!output || !output.ready) return null;
+    if (!calculated || !output || !output.ready) return null;
     return designSystem({
       city: output.city,
       psh: output.psh,
@@ -36,11 +38,25 @@ export default function DesignNormal() {
       batteryType: output.batteryType,
       systemType: output.systemType,
       usageType: output.usageType,
-      panelWattage: output.panelWattage,
+      panelWattage: panelOverride,
       assumptions: output.assumptions,
       hourlyWeights: output.hourlyWeights,
     });
-  }, [output]);
+  }, [calculated, output, panelOverride]);
+
+  const handleCalculate = () => {
+    setCalculated(true);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      requestAnimationFrame(() => reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  };
+
+  const switchMethod = (m: Method) => {
+    setMethod(m);
+    setSaved(false);
+    setCalculated(false);
+    setPanelOverride(null);
+  };
 
   const handleOutput = useCallback((o: MethodOutput) => {
     setOutput(o);
@@ -55,7 +71,7 @@ export default function DesignNormal() {
       await saveProject({
           name,
           city: output.city,
-          inputs: output,
+          inputs: { ...output, panelWattage: result.system.panelWattage },
           results: result,
           daily_energy_wh: Math.round(output.dailyEnergyWh),
           array_wattage: result.system.arrayWattage,
@@ -70,11 +86,20 @@ export default function DesignNormal() {
     }
   };
 
-  const handleQuote = () => {
-    if (!output) return;
-    const summary = `استهلاك يومي: ${(output.dailyEnergyWh / 1000).toFixed(1)} kWh | طريقة: ${output.methodLabel}`;
-    navigate({ to: '/contact', state: { summary, city: output.city } });
-  };
+  const quoteUrl = useMemo(() => {
+    if (!output || !result) return '';
+    const { system, inverter, battery } = result;
+    const lines = [
+      'مرحباً، أرغب في عرض سعر لمنظومة شمسية:',
+      `المدينة: ${output.city}`,
+      `الاستهلاك اليومي: ${(output.dailyEnergyWh / 1000).toFixed(1)} kWh`,
+      `الألواح: ${system.numPanels} × ${system.panelWattage}W (${system.totalCapacityKw} kW)`,
+      `العاكس: ${(inverter.recommendedW / 1000).toFixed(1)} kW على ${inverter.batteryVoltage}V`,
+      battery.required ? `البطاريات: ${battery.numUnits} وحدة (${(battery.usableWh / 1000).toFixed(1)} kWh قابلة للاستخدام)` : 'بدون بطاريات',
+      `طريقة الحساب: ${output.methodLabel}`,
+    ];
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join('\n'))}`;
+  }, [output, result]);
 
   return (
     <div className="py-8">
@@ -95,7 +120,7 @@ export default function DesignNormal() {
           {METHODS.map((m) => (
             <button
               key={m.key}
-              onClick={() => { setMethod(m.key); setSaved(false); }}
+              onClick={() => switchMethod(m.key)}
               className={`flex items-start gap-3 rounded-2xl border p-4 text-right transition ${
                 method === m.key
                   ? 'border-teal-400 bg-teal-50 ring-2 ring-teal-100'
@@ -120,6 +145,24 @@ export default function DesignNormal() {
             {method === 'bill' && <MethodBill onOutput={handleOutput} />}
             {method === 'manual' && <MethodManual onOutput={handleOutput} />}
 
+            <div>
+              <button
+                type="button"
+                onClick={handleCalculate}
+                disabled={!output?.ready}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 px-6 py-4 text-base font-bold text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Calculator className="h-5 w-5" /> حساب المنظومة الشمسية
+              </button>
+              {!output?.ready ? (
+                <p className="mt-2 text-center text-[11px] text-slate-400">
+                  {method === 'manual' ? 'أرفق جهازاً واحداً على الأقل لتفعيل الحساب.' : 'أدخل الاستهلاك أولاً لتفعيل الحساب.'}
+                </p>
+              ) : calculated ? (
+                <p className="mt-2 text-center text-[11px] font-medium text-teal-700">المعاينة المباشرة مفعّلة — أي تعديل في المدخلات يحدّث التقرير فوراً.</p>
+              ) : null}
+            </div>
+
             <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] text-blue-700">
               <Info className="mt-0.5 h-4 w-4 shrink-0" />
               <span>النتائج مبدئية وتقديرية، وتحتاج مراجعة مهندس مختص ودراسة ميدانية قبل التنفيذ. لا تُعد اعتماداً تنفيذياً.</span>
@@ -127,7 +170,7 @@ export default function DesignNormal() {
           </div>
 
           {/* النتائج */}
-          <div className="lg:sticky lg:top-20 lg:self-start">
+          <div ref={reportRef} className="scroll-mt-20 lg:sticky lg:top-20 lg:self-start">
             {result && output ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -139,8 +182,10 @@ export default function DesignNormal() {
                   city={output.city}
                   methodLabel={output.methodLabel}
                   onSave={handleSave}
-                  onQuote={handleQuote}
+                  quoteUrl={quoteUrl}
                   saving={saving}
+                  panelOverride={panelOverride}
+                  onPanelChange={setPanelOverride}
                 />
                 {saved && (
                   <div className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
@@ -151,8 +196,8 @@ export default function DesignNormal() {
             ) : (
               <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
                 <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100 text-teal-600"><Zap className="h-7 w-7" /></span>
-                <p className="mt-4 text-base font-bold text-slate-700">أدخل بياناتك لبدء التصميم</p>
-                <p className="mt-1 max-w-xs text-sm text-slate-400">ستظهر النتائج والتقرير الفني هنا تلقائياً فور إدخالاستهلاك.</p>
+                <p className="mt-4 text-base font-bold text-slate-700">{calculated ? 'أكمل بياناتك لعرض التقرير' : 'أدخل بياناتك ثم اضغط «حساب المنظومة الشمسية»'}</p>
+                <p className="mt-1 max-w-xs text-sm text-slate-400">سيظهر التقرير الفني الكامل هنا بعد الحساب، ثم يتحدث مباشرة مع أي تعديل.</p>
               </div>
             )}
           </div>
